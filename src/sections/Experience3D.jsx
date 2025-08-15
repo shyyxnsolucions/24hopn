@@ -64,6 +64,96 @@ export default function Experience3D() {
 
     // Environment (try HDRI, fallback to RoomEnvironment)
     const pmrem = new THREE.PMREMGenerator(renderer);
+
+// ===== Screen UI (canvas texture) =====
+    const uiCanvas = document.createElement('canvas');
+    uiCanvas.width = 768; uiCanvas.height = 1664; // ~19.5:9
+    const uiCtx = uiCanvas.getContext('2d');
+    const uiTex = new THREE.CanvasTexture(uiCanvas);
+    uiTex.anisotropy = Math.min(renderer.capabilities.getMaxAnisotropy?.() || 1, 8);
+    uiTex.needsUpdate = true;
+
+    const drawUI = (t) => {
+      // t in [0,1]
+      const w = uiCanvas.width, h = uiCanvas.height;
+      // Background
+      const grad = uiCtx.createLinearGradient(0,0,0,h);
+      grad.addColorStop(0, '#0a0f12'); grad.addColorStop(1, '#0d1418');
+      uiCtx.fillStyle = grad; uiCtx.fillRect(0,0,w,h);
+
+      // Title
+      uiCtx.fillStyle = '#e9f7f5';
+      uiCtx.font = 'bold 56px Inter, system-ui, -apple-system, Segoe UI, Roboto';
+      uiCtx.textAlign = 'center';
+      uiCtx.fillText('Desbloqueio', w/2, 160);
+
+      // Step text
+      uiCtx.font = '32px Inter, system-ui';
+      uiCtx.fillStyle = '#9ddbd6';
+      let step = 'Iniciando...';
+      if (t < 0.33) step = 'Verificando IMEI...';
+      else if (t < 0.66) step = 'Desbloqueando...';
+      else if (t < 0.98) step = 'Finalizando...';
+      else step = 'Finalizado';
+
+      uiCtx.fillText(step, w/2, 260);
+
+      // Progress bar
+      const barW = w*0.72, barH = 36, bx = (w-barW)/2, by = 320;
+      uiCtx.fillStyle = '#1b2a30'; uiCtx.fillRect(bx, by, barW, barH);
+      const pw = Math.max(0, Math.min(1, t)) * barW;
+      uiCtx.fillStyle = '#02e5cc'; uiCtx.fillRect(bx, by, pw, barH);
+      uiCtx.lineWidth = 4; uiCtx.strokeStyle = '#0c3b3a'; uiCtx.strokeRect(bx+2, by+2, barW-4, barH-4);
+
+      // Percent
+      uiCtx.fillStyle = '#d3f3ee';
+      uiCtx.font = 'bold 30px Inter, system-ui';
+      uiCtx.fillText(`${Math.round(t*100)}%`, w/2, by + 84);
+
+      // Footer hint
+      uiCtx.fillStyle = '#8cb7b3';
+      uiCtx.font = '26px Inter, system-ui';
+      uiCtx.fillText('Role para desbloquear', w/2, h-80);
+
+      uiTex.needsUpdate = true;
+    };
+
+    const attachScreenPlane = (targetGroup) => {
+      // Compute bbox to place the plane slightly above the front face (assumes +Z is forward; we auto orient otherwise)
+      const bbox = new THREE.Box3().setFromObject(targetGroup);
+      const size = bbox.getSize(new THREE.Vector3());
+      const center = bbox.getCenter(new THREE.Vector3());
+
+      // Heuristic: try to find front direction. If the model is "lying down", align to camera
+      const forward = new THREE.Vector3(0, 0, 1);
+      // Plane size with safe margins
+      const planeW = size.x * 0.85;
+      const planeH = size.y * 0.82;
+
+      const geo = new THREE.PlaneGeometry(planeW, planeH, 1, 1);
+      const mat = new THREE.MeshPhysicalMaterial({
+        map: uiTex,
+        emissive: new THREE.Color('#0a0f12'),
+        emissiveMap: uiTex,
+        emissiveIntensity: 0.85,
+        metalness: 0.0,
+        roughness: 0.9,
+        transparent: false
+      });
+      const plane = new THREE.Mesh(geo, mat);
+      plane.name = "ScreenPlane";
+      plane.position.copy(center.clone().add(forward.clone().multiplyScalar(size.z * 0.51)));
+      // Try to orient plane to face camera initially
+      plane.lookAt(camera.position.clone().setZ(camera.position.z + 1e-3));
+      // Ensure it stays aligned with phone by parenting
+      targetGroup.add(plane);
+      plane.renderOrder = 2;
+      return plane;
+    };
+
+    const unlock = { value: 0 };
+    drawUI(0);
+
     const loadEnvMap = async () => {
       const exists = async (url) => {
         try {
@@ -157,95 +247,8 @@ export default function Experience3D() {
     scene.add(phone);
     phoneRef.current = phone;
     const screenPlaneFallback = attachScreenPlane(phone);
-
-    // ===== Screen UI (canvas texture) =====
-    const uiCanvas = document.createElement('canvas');
-    uiCanvas.width = 768; uiCanvas.height = 1664; // ~19.5:9
-    const uiCtx = uiCanvas.getContext('2d');
-    const uiTex = new THREE.CanvasTexture(uiCanvas);
-    uiTex.anisotropy = Math.min(renderer.capabilities.getMaxAnisotropy?.() || 1, 8);
-    uiTex.needsUpdate = true;
-
-    const drawUI = (t) => {
-      // t in [0,1]
-      const w = uiCanvas.width, h = uiCanvas.height;
-      // Background
-      const grad = uiCtx.createLinearGradient(0,0,0,h);
-      grad.addColorStop(0, '#0a0f12'); grad.addColorStop(1, '#0d1418');
-      uiCtx.fillStyle = grad; uiCtx.fillRect(0,0,w,h);
-
-      // Title
-      uiCtx.fillStyle = '#e9f7f5';
-      uiCtx.font = 'bold 56px Inter, system-ui, -apple-system, Segoe UI, Roboto';
-      uiCtx.textAlign = 'center';
-      uiCtx.fillText('Desbloqueio', w/2, 160);
-
-      // Step text
-      uiCtx.font = '32px Inter, system-ui';
-      uiCtx.fillStyle = '#9ddbd6';
-      let step = 'Iniciando...';
-      if (t < 0.33) step = 'Verificando IMEI...';
-      else if (t < 0.66) step = 'Desbloqueando...';
-      else if (t < 0.98) step = 'Finalizando...';
-      else step = 'Finalizado';
-
-      uiCtx.fillText(step, w/2, 260);
-
-      // Progress bar
-      const barW = w*0.72, barH = 36, bx = (w-barW)/2, by = 320;
-      uiCtx.fillStyle = '#1b2a30'; uiCtx.fillRect(bx, by, barW, barH);
-      const pw = Math.max(0, Math.min(1, t)) * barW;
-      uiCtx.fillStyle = '#02e5cc'; uiCtx.fillRect(bx, by, pw, barH);
-      uiCtx.lineWidth = 4; uiCtx.strokeStyle = '#0c3b3a'; uiCtx.strokeRect(bx+2, by+2, barW-4, barH-4);
-
-      // Percent
-      uiCtx.fillStyle = '#d3f3ee';
-      uiCtx.font = 'bold 30px Inter, system-ui';
-      uiCtx.fillText(`${Math.round(t*100)}%`, w/2, by + 84);
-
-      // Footer hint
-      uiCtx.fillStyle = '#8cb7b3';
-      uiCtx.font = '26px Inter, system-ui';
-      uiCtx.fillText('Role para desbloquear', w/2, h-80);
-
-      uiTex.needsUpdate = true;
-    };
-
-    const attachScreenPlane = (targetGroup) => {
-      // Compute bbox to place the plane slightly above the front face (assumes +Z is forward; we auto orient otherwise)
-      const bbox = new THREE.Box3().setFromObject(targetGroup);
-      const size = bbox.getSize(new THREE.Vector3());
-      const center = bbox.getCenter(new THREE.Vector3());
-
-      // Heuristic: try to find front direction. If the model is "lying down", align to camera
-      const forward = new THREE.Vector3(0, 0, 1);
-      // Plane size with safe margins
-      const planeW = size.x * 0.85;
-      const planeH = size.y * 0.82;
-
-      const geo = new THREE.PlaneGeometry(planeW, planeH, 1, 1);
-      const mat = new THREE.MeshPhysicalMaterial({
-        map: uiTex,
-        emissive: new THREE.Color('#0a0f12'),
-        emissiveMap: uiTex,
-        emissiveIntensity: 0.85,
-        metalness: 0.0,
-        roughness: 0.9,
-        transparent: false
-      });
-      const plane = new THREE.Mesh(geo, mat);
-      plane.name = "ScreenPlane";
-      plane.position.copy(center.clone().add(forward.clone().multiplyScalar(size.z * 0.51)));
-      // Try to orient plane to face camera initially
-      plane.lookAt(camera.position.clone().setZ(camera.position.z + 1e-3));
-      // Ensure it stays aligned with phone by parenting
-      targetGroup.add(plane);
-      plane.renderOrder = 2;
-      return plane;
-    };
-
-    const unlock = { value: 0 };
-    drawUI(0);
+    
+    
 
 
     // Scroll-driven timeline setup
@@ -338,6 +341,7 @@ buildTimeline(phone);
           scene.add(phone);
           attachScreenPlane(phone);
           phoneRef.current = phone;
+    const screenPlaneFallback = attachScreenPlane(phone);
           buildTimeline(phone);
           break;
         } catch (e) { /* tenta próximo */ }
