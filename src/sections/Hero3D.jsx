@@ -32,7 +32,7 @@ export default function Hero3D() {
 
   useEffect(() => {
     const width = mountRef.current.clientWidth;
-    const height = 560;
+    const height = mountRef.current.clientHeight || 560;
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color("#0b0c0d");
@@ -168,8 +168,8 @@ export default function Hero3D() {
       camera.far  = distance * 100;
       camera.updateProjectionMatrix();
 
-      controls.minDistance = distance * 0.7;
-      controls.maxDistance = distance * 2.2;
+      controls.minDistance = distance * 0.6;
+      controls.maxDistance = distance * 3.0;
       controls.update();
     } catch (e) {
       console.warn("fit camera skipped:", e);
@@ -240,7 +240,7 @@ export default function Hero3D() {
             <a href="#servicos" className="text-white/70 hover:text-white text-sm">Ver serviços</a>
           </div>
         </div>
-        <div ref={mountRef} className="w-full rounded-2xl border border-white/10 bg-[radial-gradient(circle_at_20%_0%,rgba(0,229,204,0.15),rgba(0,0,0,0)_40%),linear-gradient(180deg,rgba(12,14,16,0.6),rgba(12,14,16,0.6))]" />
+        <div ref={mountRef} className="w-full rounded-2xl border border-white/10 bg-[radial-gradient(circle_at_20%_0%,rgba(0,229,204,0.15),rgba(0,0,0,0)_40%),linear-gradient(180deg,rgba(12,14,16,0.6),rgba(12,14,16,0.6))]" style={{ height: "calc(100vh - 84px)" }}" />
       </div>
       <div className="pointer-events-none absolute inset-0 -z-10" aria-hidden>
         <div className="absolute -top-24 right-0 h-64 w-64 rounded-full blur-3xl" style={{ background: "radial-gradient(circle, rgba(0,229,204,0.25), transparent 60%)" }} />
