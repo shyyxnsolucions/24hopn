@@ -168,8 +168,8 @@ export default function Hero3D() {
       camera.far  = distance * 100;
       camera.updateProjectionMatrix();
 
-      controls.minDistance = distance * 0.6;
-      controls.maxDistance = distance * 3.0;
+      controls.minDistance = distance * 1.20;
+      controls.maxDistance = distance * 10.0;
       controls.update();
     } catch (e) {
       console.warn("fit camera skipped:", e);
@@ -177,7 +177,7 @@ export default function Hero3D() {
 
 
     // Cinematic motion (gsap)
-    gsap.fromTo(body.rotation, { x: 0.15, y: -0.6 }, { x: 0.2, y: 0.6, duration: 6, repeat: -1, yoyo: true, ease: "sine.inOut" });
+    gsap.fromTo(body.rotation, { x: 0.1, y: -0.1 }, { x: 0.2, y: 0.6, duration: 4, repeat: -1, yoyo: true, ease: "sine.inOut" });
     gsap.to(mainLight, { intensity: 1.4, duration: 3, yoyo: true, repeat: -1, ease: "sine.inOut" });
     gsap.to(ring.position, { y: -0.1, duration: 3.5, yoyo: true, repeat: -1, ease: "sine.inOut" });
 
