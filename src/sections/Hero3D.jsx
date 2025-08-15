@@ -138,6 +138,43 @@ export default function Hero3D() {
     controls.maxDistance = 4.0;
     controls.autoRotate = true;
     controls.autoRotateSpeed = 0.7;
+    controls.autoRotateSpeed = 0.7;
+
+    // --- Fit camera to phone so it never apareça "cortado" ---
+    // Calcula a caixa do corpo do telefone (inclui tela porque é filha)
+    try {
+      const bbox = new THREE.Box3().setFromObject(body);
+      const size = bbox.getSize(new THREE.Vector3());
+      const center = bbox.getCenter(new THREE.Vector3());
+
+      // Garante que o conjunto (body) esteja centrado
+      body.position.sub(center);
+
+      // Distância ideal da câmera com base no FOV vertical
+      const fitOffset = 1.2; // margem
+      const vFOV = THREE.MathUtils.degToRad(camera.fov); // em radianos
+      const distance = (size.y * fitOffset) / (2 * Math.tan(vFOV / 2));
+
+      // Mantém a direção original da câmera, só ajusta o comprimento
+      const dir = new THREE.Vector3().copy(camera.position).normalize();
+      camera.position.copy(dir.multiplyScalar(distance));
+
+      // Mira levemente acima do centro geométrico para compor melhor
+      const target = new THREE.Vector3(0, Math.min(size.y * 0.15, 0.5), 0);
+      controls.target.copy(target);
+
+      // Ajusta clipping e limites de zoom
+      camera.near = Math.max(distance / 100, 0.01);
+      camera.far  = distance * 100;
+      camera.updateProjectionMatrix();
+
+      controls.minDistance = distance * 0.7;
+      controls.maxDistance = distance * 2.2;
+      controls.update();
+    } catch (e) {
+      console.warn("fit camera skipped:", e);
+    }
+
 
     // Cinematic motion (gsap)
     gsap.fromTo(body.rotation, { x: 0.15, y: -0.6 }, { x: 0.2, y: 0.6, duration: 6, repeat: -1, yoyo: true, ease: "sine.inOut" });
