@@ -58,18 +58,14 @@ export default function Experience3D() {
     renderer.setSize(width, height);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, isMobile ? 1.5 : 2));
     renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    mountRef.current.appendChild(renderer.domElement);
-    rendererRef.current = renderer;
-
-    // Environment (try HDRI, fallback to RoomEnvironment)
-    const pmrem = new THREE.PMREMGenerator(renderer);
 
 // ===== Screen UI (canvas texture) =====
     const uiCanvas = document.createElement('canvas');
     uiCanvas.width = 768; uiCanvas.height = 1664; // ~19.5:9
     const uiCtx = uiCanvas.getContext('2d');
     const uiTex = new THREE.CanvasTexture(uiCanvas);
+    uiTex.colorSpace = THREE.SRGBColorSpace;
+    uiTex.flipY = false;
     uiTex.anisotropy = Math.min(renderer.capabilities.getMaxAnisotropy?.() || 1, 8);
     uiTex.needsUpdate = true;
 
@@ -153,6 +149,16 @@ export default function Experience3D() {
 
     const unlock = { value: 0 };
     drawUI(0);
+
+
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    mountRef.current.appendChild(renderer.domElement);
+    rendererRef.current = renderer;
+
+    // Environment (try HDRI, fallback to RoomEnvironment)
+    const pmrem = new THREE.PMREMGenerator(renderer);
+
+
 
     const loadEnvMap = async () => {
       const exists = async (url) => {
@@ -341,7 +347,6 @@ buildTimeline(phone);
           scene.add(phone);
           attachScreenPlane(phone);
           phoneRef.current = phone;
-    const screenPlaneFallback = attachScreenPlane(phone);
           buildTimeline(phone);
           break;
         } catch (e) { /* tenta próximo */ }
