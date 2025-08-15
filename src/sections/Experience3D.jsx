@@ -227,162 +227,78 @@ try { const env = pmrem.fromScene(new RoomEnvironment(), 0.04).texture; scene.en
     
 
 
-    // Scroll-driven timeline setup
-    const tl = gsap.timeline({ paused: true , onUpdate: () => { drawUI(unlock.value); } });
-    const sections = STEPS;
-    const totalRot = THREE.MathUtils.degToRad(360);
-    const startAngle = -totalRot / 2;
-    const angleStep = totalRot / (sections.length - 1);
+  // === TIMELINE (scroll-driven) ===
+const tl = gsap.timeline({
+  paused: true,
+  onUpdate: () => { drawUI(unlock.value); },
+});
 
-    const buildTimeline = (phoneObj) => {
-      tl.clear();
-      gsap.set(phoneObj.rotation, { x: 0.12, y: startAngle });
-      sections.forEach((_, i) => {
-        const angle = startAngle + i * angleStep;
-        const tilt = 0.12 + (i % 2 === 0 ? 0.08 : -0.06);
-        tl.to(phoneObj.rotation, { y: angle, x: tilt, duration: 0.9, ease: "power2.inOut" }, "+=0");
-        tl.to(phoneObj.position, { y: -0.02 + (i % 2 === 0 ? 0.06 : -0.04), duration: 0.9, ease: "power2.inOut" }, "<");
-        tl.to(key, { intensity: 1.3 + (i % 2 ? 0.2 : -0.1), duration: 0.9, ease: "sine.inOut" }, "<");
-      });
-    
-      // --- Cinematic unlock phase ---
-      // Referências úteis no escopo: camera, key, rim, sweep, bloom, bokeh
-      tl.addLabel('unlockPhase', '+=0');
-      // Extra spin + leve inclinação
-      tl.to(phoneObj.rotation, { y: `+=${Math.PI * 1.1}`, x: 0.08, duration: 1.2, ease: "power3.inOut" }, 'unlockPhase');
-      // Dolly-in de câmera para dar impacto
-      tl.to(camera.position, { z: 2.9, y: 0.82, duration: 1.2, ease: "power3.inOut" }, 'unlockPhase');
-      // Sweep de luz atravessando a tela
-      tl.fromTo(sweep.position, { x: -1.6 }, { x: 1.6, duration: 1.0, ease: "sine.inOut" }, 'unlockPhase+=0.1');
-      tl.to(sweep, { intensity: 1.25, duration: 0.8, yoyo: true, repeat: 1, ease: "sine.inOut" }, 'unlockPhase');
-      // Respira: volta um pouco a câmera
-      tl.to(camera.position, { z: 3.4, duration: 0.8, ease: "power2.out" }, 'unlockPhase+=1.1');
-      // Lights: dá um punch no key e rim
-      tl.to(key, { intensity: 1.8, duration: 0.9, ease: "sine.inOut" }, 'unlockPhase');
-      tl.to(rim, { intensity: 1.2, duration: 0.9, ease: "sine.inOut" }, 'unlockPhase');
-      // Bloom e DOF
-      // bloom mod removido no safe-mode
-      tl.call(() => { // bokeh focus (safe-mode) }, null, 'unlockPhase');
-      tl.call(() => { // bokeh aperture (safe-mode) }, null, 'unlockPhase+=0.6');
-      // Micro shake (haptic) para sensação de click/desbloqueio
-      tl.to(camera.position, { x: '+=0.04', duration: 0.08, yoyo: true, repeat: 3, ease: "sine.inOut" }, 'unlockPhase+=0.5');
-    };
+const sections   = STEPS;
+const totalRot   = THREE.MathUtils.degToRad(360);
+const startAngle = -totalRot / 2;
+const angleStep  = totalRot / (sections.length - 1);
 
-    
-    // Drive unlock progress during the main section
-    tl.to(unlock, { value: 1, duration: 1.0, ease: 'none' }, '>-0.1');
+const buildTimeline = (phoneObj) => {
+  tl.clear();
+  gsap.set(phoneObj.rotation, { x: 0.12, y: startAngle });
+
+  // Passos principais (rotate + tilt + bounce leve)
+  sections.forEach((_, i) => {
+    const angle = startAngle + i * angleStep;
+    const tilt  = 0.12 + (i % 2 === 0 ? 0.08 : -0.06);
+    tl.to(phoneObj.rotation, { y: angle, x: tilt, duration: 0.9, ease: "power2.inOut" }, "+=0");
+    tl.to(phoneObj.position, { y: -0.02 + (i % 2 === 0 ? 0.06 : -0.04), duration: 0.9, ease: "power2.inOut" }, "<");
+    tl.to(key,               { intensity: 1.3 + (i % 2 ? 0.2 : -0.1), duration: 0.9, ease: "sine.inOut" }, "<");
+  });
+
+  // Progresso da tela (0 → 1)
+  tl.to(unlock, { value: 1, duration: 1.0, ease: "none" }, ">-0.1");
+
+  // Fase cinematográfica de “unlock”
+  tl.addLabel("unlockPhase");
+  tl.to(phoneObj.rotation, { y: `+=${Math.PI * 1.1}`, x: 0.08, duration: 1.2, ease: "power3.inOut" }, "unlockPhase");
+  tl.to(camera.position,   { z: 2.9, y: 0.82,        duration: 1.2, ease: "power3.inOut" }, "unlockPhase");
+  tl.fromTo(sweep.position, { x: -1.6 }, { x: 1.6, duration: 1.0, ease: "sine.inOut" }, "unlockPhase+=0.1");
+  tl.to(sweep,             { intensity: 1.25, duration: 0.8, yoyo: true, repeat: 1, ease: "sine.inOut" }, "unlockPhase");
+  tl.to(camera.position,   { z: 3.4, duration: 0.8, ease: "power2.out" }, "unlockPhase+=1.1");
+  tl.to(key,               { intensity: 1.8, duration: 0.9, ease: "sine.inOut" }, "unlockPhase");
+  tl.to(rim,               { intensity: 1.2, duration: 0.9, ease: "sine.inOut" }, "unlockPhase");
+
+  // safe-mode: sem Bloom/DOF, mantemos as chamadas como no-ops válidas
+  tl.call(() => {}, null, "unlockPhase");
+  tl.call(() => {}, null, "unlockPhase+=0.6");
+
+  // micro “haptic”
+  tl.to(camera.position, { x: "+=0.04", duration: 0.08, yoyo: true, repeat: 3, ease: "sine.inOut" }, "unlockPhase+=0.5");
+};
+
+// constroi timeline (com fallback já na cena)
 buildTimeline(phone);
 
-    // Loader do modelo glTF real (se existir public/models/phone.glb)
-    // Usamos um LoadingManager dedicado para não escutar progresso de outros assets
-    const manager = new THREE.LoadingManager();
-    manager.onStart = () => setLoading({ show: true, progress: 0 });
-    manager.onProgress = (_url, loaded, total) => {
-      setLoading({ show: true, progress: (loaded / total) * 100 });
-    };
-    manager.onError = () => setLoading({ show: false, progress: 100 });
-    manager.onLoad = () => setLoading({ show: false, progress: 100 });
+// === SCROLLTRIGGER ===
+const cards = wrapRef.current.querySelectorAll('[data-stepcard]');
+cards.forEach((card, i) => gsap.set(card, { autoAlpha: i === 0 ? 1 : 0, y: i === 0 ? 0 : 30 }));
 
-    const loader = new GLTFLoader(manager);
+let current = 0;
+const totalScroll = sections.length * 1200; // mais tempo pro efeito
 
-    (async () => {
-      const candidates = ["/models/phone.glb", "/models/phone.gltf"]; // prefer .glb
-      for (const url of candidates) {
-        try {
-          
-          const gltf = await loader.loadAsync(url);
-          // Swap fallback for loaded model
-          scene.remove(phone);
-          phone = gltf.scene || gltf.scenes?.[0];
-          // Shadow & materials
-          phone.traverse((o) => {
-            if (o.isMesh) {
-              o.castShadow = true;
-              o.receiveShadow = true;
-              if (o.material && o.material.metalness !== undefined) {
-                o.material.envMapIntensity = 1.2;
-              }
-            }
-          });
-          // Normalize size & center
-          const box = new THREE.Box3().setFromObject(phone);
-          const size = box.getSize(new THREE.Vector3());
-          const scale = 3.2 / Math.max(size.y, 0.0001);
-          phone.scale.setScalar(scale);
-          const center = box.getCenter(new THREE.Vector3());
-          phone.position.sub(center.multiplyScalar(1));
-          // Slight hero tilt
-          phone.rotation.set(0.12, -0.2, 0);
-          // Add and attach screen
-          scene.add(phone);
-          attachScreenPlane(phone);
-          phoneRef.current = phone;
-          buildTimeline(phone);
-          break;
-        } catch (e) { /* tenta próximo */ }
-      }
-      // Garante que o overlay seja ocultado mesmo se nenhum arquivo existir
-      setLoading((prev) => ({ ...prev, show: false, progress: 100 }));
-      // Intro cinematic
-      gsap.fromTo(phone.rotation, { x: 0.35, y: -0.6 }, { x: 0.12, y: -0.2, duration: 1.6, ease: 'power3.out' });
-      gsap.fromTo(phone.position, { y: 0.35 }, { y: 0, duration: 1.6, ease: 'power3.out' });
-      gsap.fromTo(key, { intensity: 0.8 }, { intensity: 1.6, duration: 1.4, ease: 'sine.out' });
-      // Sweep loop
-      gsap.timeline({ repeat: -1 })
-        .to(sweep.position, { x: 1.4, duration: 2.2, ease: 'sine.inOut' }, 0)
-        .to(sweep, { intensity: 1.6, duration: 1.1, yoyo: true, repeat: 1, ease: 'sine.inOut' }, 0);
-    })();
+ScrollTrigger.create({
+  trigger: wrapRef.current,
+  start: "top top",
+  end: `+=${totalScroll}`,
+  scrub: 0.7,
+  pin: true,
+  onUpdate: (self) => {
+    tl.progress(self.progress);
+    const index = Math.min(sections.length - 1, Math.floor(self.progress * sections.length));
+    if (index !== current) {
+      gsap.to(cards[current], { autoAlpha: 0, y: -20, duration: 0.45, ease: "power2.in" });
+      gsap.to(cards[index],   { autoAlpha: 1, y: 0,   duration: 0.60, ease: "power2.out" });
+      current = index;
+    }
+  },
+});
 
-    // Postprocessing removido no modo seguro; renderizamos direto no renderer.
-
-    // Resize
-    const onResize = () => {
-      const w = mountRef.current.clientWidth;
-      const h = mountRef.current.clientHeight;
-      camera.aspect = w / h; camera.updateProjectionMatrix();
-      renderer.setSize(w, h);
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio, isMobile ? 1.5 : 2));
-    };
-    window.addEventListener("resize", onResize);
-
-    // RAF
-    const tick = () => { renderer.render(scene, camera); reqRef.current = requestAnimationFrame(tick); };
-    tick();
-
-    const cards = wrapRef.current.querySelectorAll('[data-stepcard]');
-    cards.forEach((card, i) => gsap.set(card, { autoAlpha: i === 0 ? 1 : 0, y: i === 0 ? 0 : 30 }));
-
-    let current = 0;
-    const totalScroll = sections.length * 1200; // px (mais tempo para o efeito cinematográfico)
-    const st = ScrollTrigger.create({
-      trigger: wrapRef.current,
-      start: "top top",
-      end: `+=${totalScroll}`,
-      scrub: 0.7,
-      pin: true,
-      onUpdate: (self) => {
-        tl.progress(self.progress);
-        const index = Math.min(
-          sections.length - 1,
-          Math.floor(self.progress * sections.length)
-        );
-        if (index !== current) {
-          gsap.to(cards[current], {
-            autoAlpha: 0,
-            y: -20,
-            duration: 0.45,
-            ease: "power2.in",
-          });
-          gsap.to(cards[index], {
-            autoAlpha: 1,
-            y: 0,
-            duration: 0.6,
-            ease: "power2.out",
-          });
-          current = index;
-        }
-      },
-    });
 
     return () => {
       st.kill();
