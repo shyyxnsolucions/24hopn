@@ -157,37 +157,7 @@ export default function Experience3D() {
 
     // Environment (try HDRI, fallback to RoomEnvironment)
     const pmrem = new THREE.PMREMGenerator(renderer);
-
-
-
-    const loadEnvMap = async () => {
-      const exists = async (url) => {
-        try {
-          const res = await fetch(url, { method: 'HEAD' });
-          return res.ok;
-        } catch {
-          return false;
-        }
-      };
-      try {
-        if (await exists('/hdr/studio.hdr')) {
-          const hdr = await new RGBELoader().loadAsync('/hdr/studio.hdr');
-          hdr.mapping = THREE.EquirectangularReflectionMapping;
-          scene.environment = hdr;
-        } else if (await exists('/hdr/studio.exr')) {
-          const exr = await new EXRLoader().loadAsync('/hdr/studio.exr');
-          exr.mapping = THREE.EquirectangularReflectionMapping;
-          scene.environment = exr;
-        } else {
-          const env = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
-          scene.environment = env;
-        }
-      } catch {
-        const env = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
-        scene.environment = env;
-      }
-    };
-    loadEnvMap();
+try { const env = pmrem.fromScene(new RoomEnvironment(), 0.04).texture; scene.environment = env; } catch {}
 
     // Lights
     const key = new THREE.SpotLight(0xe0fff8, 1.6, 12, Math.PI / 6, 0.4, 1.2);
@@ -291,9 +261,9 @@ export default function Experience3D() {
       tl.to(key, { intensity: 1.8, duration: 0.9, ease: "sine.inOut" }, 'unlockPhase');
       tl.to(rim, { intensity: 1.2, duration: 0.9, ease: "sine.inOut" }, 'unlockPhase');
       // Bloom e DOF
-      tl.to(bloom, { strength: 0.78, duration: 0.9, ease: "sine.inOut" }, 'unlockPhase');
-      tl.call(() => { if (bokeh) bokeh.uniforms.focus.value = 2.0; }, null, 'unlockPhase');
-      tl.call(() => { if (bokeh) bokeh.uniforms.aperture.value = 0.00042; }, null, 'unlockPhase+=0.6');
+      // bloom mod removido no safe-mode
+      tl.call(() => { // bokeh focus (safe-mode) }, null, 'unlockPhase');
+      tl.call(() => { // bokeh aperture (safe-mode) }, null, 'unlockPhase+=0.6');
       // Micro shake (haptic) para sensação de click/desbloqueio
       tl.to(camera.position, { x: '+=0.04', duration: 0.08, yoyo: true, repeat: 3, ease: "sine.inOut" }, 'unlockPhase+=0.5');
     };
@@ -363,26 +333,20 @@ buildTimeline(phone);
         .to(sweep, { intensity: 1.6, duration: 1.1, yoyo: true, repeat: 1, ease: 'sine.inOut' }, 0);
     })();
 
-    // Postprocessing com qualidade adaptativa
-    const composer = new EffectComposer(renderer);
-    composer.addPass(new RenderPass(scene, camera));
-    const bloom = new UnrealBloomPass(new THREE.Vector2(width, height), isMobile ? 0.35 : 0.5, 0.8, 0.75);
-    composer.addPass(bloom);
-    let bokeh; if (!isMobile) { bokeh = new BokehPass(scene, camera, { focus: 4.0, aperture: 0.00022, maxblur: 0.006 }); composer.addPass(bokeh); }
-    composerRef.current = composer;
+    // Postprocessing removido no modo seguro; renderizamos direto no renderer.
 
     // Resize
     const onResize = () => {
       const w = mountRef.current.clientWidth;
       const h = mountRef.current.clientHeight;
       camera.aspect = w / h; camera.updateProjectionMatrix();
-      renderer.setSize(w, h); composer.setSize(w, h);
+      renderer.setSize(w, h);
       renderer.setPixelRatio(Math.min(window.devicePixelRatio, isMobile ? 1.5 : 2));
     };
     window.addEventListener("resize", onResize);
 
     // RAF
-    const tick = () => { composer.render(); reqRef.current = requestAnimationFrame(tick); };
+    const tick = () => { renderer.render(scene, camera); reqRef.current = requestAnimationFrame(tick); };
     tick();
 
     const cards = wrapRef.current.querySelectorAll('[data-stepcard]');
