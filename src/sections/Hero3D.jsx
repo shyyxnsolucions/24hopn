@@ -13,6 +13,9 @@ import LoadingOverlay from "../components/LoadingOverlay";
 
 gsap.registerPlugin(ScrollTrigger);
 
+// Toggle para travar o modelo (sem rotações/poses)
+const ROTATE = false;
+
 const WhatsCTA = () => (
   <a
     href={`https://wa.me/${BRAND.whatsappIntl}?text=${encodeURIComponent(
@@ -43,7 +46,7 @@ export default function Experience3D() {
     scene.background = new THREE.Color("#090a0b");
 
     const camera = new THREE.PerspectiveCamera(30, width / height, 0.01, 100);
-    camera.position.set(0, 0.9, 3.6);
+    camera.position.set(0, 0.9, 6.5);
     camera.lookAt(0, 0, 0);
     camera.updateProjectionMatrix();
 
@@ -263,7 +266,7 @@ export default function Experience3D() {
     let phone = makeFallbackPhone();
     scene.add(phone);
     attachScreenPlane(phone);
-    phone.rotation.set(0.12, -0.2, 0);
+    phone.rotation.set(0, 0, 0);
     phone.position.set(0, 0, 0);
     phoneRef.current = phone;
 
@@ -287,20 +290,14 @@ export default function Experience3D() {
       sections.forEach((_, i) => {
         const angle = startAngle + i * angleStep;
         const tilt = 0.12 + (i % 2 === 0 ? 0.08 : -0.06);
-        tl.to(
-          phoneObj.rotation,
-          { y: angle, x: tilt, duration: 0.9, ease: "power2.inOut" },
-          "+=0"
-        );
-        tl.to(
-          phoneObj.position,
-          {
-            y: -0.02 + (i % 2 === 0 ? 0.06 : -0.04),
-            duration: 0.9,
-            ease: "power2.inOut",
-          },
-          "<"
-        );
+        if (ROTATE) {
+  tl.to(phoneObj.rotation, { y: angle, x: tilt, duration: 0.9, ease: "power2.inOut" }, "+=0");
+  tl.to(phoneObj.position, { y: -0.02 + (i % 2 === 0 ? 0.06 : -0.04), duration: 0.9, ease: "sine.inOut" }, "<");
+} else {
+  // mantém o tempo da timeline sem mexer no modelo
+  tl.to({}, { duration: 0.9 });
+}
+
         tl.to(
           key,
           { intensity: 1.3 + (i % 2 ? 0.2 : -0.1), duration: 0.9, ease: "sine.inOut" },
@@ -436,28 +433,14 @@ export default function Experience3D() {
 
           // Norm/escala/centro
           const box = new THREE.Box3().setFromObject(phone);
-const size = box.getSize(new THREE.Vector3());
-// === Ajuste de escala por ALTURA-ALVO em unidades de cena ===
-const TARGET_UNITS = 1.6; // altura desejada do telefone na cena (menor -> menor na tela)
-const scale = TARGET_UNITS / Math.max(size.y || 1e-3, 1e-3);
-phone.scale.setScalar(scale);
-const center = box.getCenter(new THREE.Vector3());
-phone.position.sub(center.multiplyScalar(1));
+          const size = box.getSize(new THREE.Vector3());
+          const scale = 1.6 / Math.max(size.y || 1e-3, 1e-3);
+          phone.scale.setScalar(scale);
+          const center = box.getCenter(new THREE.Vector3());
+          phone.position.sub(center.multiplyScalar(1));
 
-// === Ajuste de distância da câmera por cobertura da tela ===
-const COVERAGE = 0.55; // fração da altura do viewport ocupada pelo modelo
-const MARGIN = 1.08;   // respiro extra
-const vFOV = THREE.MathUtils.degToRad(camera.fov);
-const distance = ((TARGET_UNITS / (2 * Math.tan(vFOV / 2))) / COVERAGE) * MARGIN;
-const dir = new THREE.Vector3().copy(camera.position).normalize();
-camera.position.copy(dir.multiplyScalar(distance));
-const lookY = Math.min(TARGET_UNITS * 0.18, 0.35);
-camera.lookAt(0, lookY, 0);
-camera.near = Math.max(distance / 100, 0.01);
-camera.far  = distance * 100;
-camera.updateProjectionMatrix();
-// Pose
-          phone.rotation.set(0.12, -0.2, 0);
+          // Pose
+          phone.rotation.set(0, 0, 0);
 
           // Materiais/sombras
           phone.traverse((o) => {
