@@ -310,25 +310,34 @@ buildTimeline(phone);
       const candidates = ["/models/phone.glb", "/models/phone.gltf"]; // prefer .glb
       for (const url of candidates) {
         try {
+          
           const gltf = await loader.loadAsync(url);
+          // Swap fallback for loaded model
           scene.remove(phone);
-          phone = gltf.scene;
-          phone.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; if (o.material?.metalness !== undefined) o.material.envMapIntensity = 1.2; } });
-          // Normalize size/center
+          phone = gltf.scene || gltf.scenes?.[0];
+          // Shadow & materials
+          phone.traverse((o) => {
+            if (o.isMesh) {
+              o.castShadow = true;
+              o.receiveShadow = true;
+              if (o.material && o.material.metalness !== undefined) {
+                o.material.envMapIntensity = 1.2;
+              }
+            }
+          });
+          // Normalize size & center
           const box = new THREE.Box3().setFromObject(phone);
-          const size = new THREE.Vector3(); box.getSize(size);
-          const scale = 3.2 / Math.max(size.y, 0.0001); phone.scale.setScalar(scale);
-          const c
-          // (model loaded via GLTF) using existing logic below
-
-          }
-    enter = new THREE.Vector3(); box.getCenter(center); phone.position.sub(center.multiplyScalar(scale));
+          const size = box.getSize(new THREE.Vector3());
+          const scale = 3.2 / Math.max(size.y, 0.0001);
+          phone.scale.setScalar(scale);
+          const center = box.getCenter(new THREE.Vector3());
+          phone.position.sub(center.multiplyScalar(1));
+          // Slight hero tilt
+          phone.rotation.set(0.12, -0.2, 0);
+          // Add and attach screen
           scene.add(phone);
-            attachScreenPlane(phone);
-            phoneRef.current = phone;
+          attachScreenPlane(phone);
           phoneRef.current = phone;
-    const screenPlaneFallback = attachScreenPlane(phone);
-
           buildTimeline(phone);
           break;
         } catch (e) { /* tenta próximo */ }
