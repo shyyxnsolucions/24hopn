@@ -234,6 +234,7 @@ export default function Experience3D() {
         transparent: false
       });
       const plane = new THREE.Mesh(geo, mat);
+      plane.name = "ScreenPlane";
       plane.position.copy(center.clone().add(forward.clone().multiplyScalar(size.z * 0.51)));
       // Try to orient plane to face camera initially
       plane.lookAt(camera.position.clone().setZ(camera.position.z + 1e-3));
@@ -250,7 +251,7 @@ export default function Experience3D() {
     // Scroll-driven timeline setup
     const tl = gsap.timeline({ paused: true , onUpdate: () => { drawUI(unlock.value); } });
     const sections = STEPS;
-    const totalRot = THREE.MathUtils.degToRad(160);
+    const totalRot = THREE.MathUtils.degToRad(360);
     const startAngle = -totalRot / 2;
     const angleStep = totalRot / (sections.length - 1);
 
@@ -264,6 +265,28 @@ export default function Experience3D() {
         tl.to(phoneObj.position, { y: -0.02 + (i % 2 === 0 ? 0.06 : -0.04), duration: 0.9, ease: "power2.inOut" }, "<");
         tl.to(key, { intensity: 1.3 + (i % 2 ? 0.2 : -0.1), duration: 0.9, ease: "sine.inOut" }, "<");
       });
+    
+      // --- Cinematic unlock phase ---
+      // Referências úteis no escopo: camera, key, rim, sweep, bloom, bokeh
+      tl.addLabel('unlockPhase', '+=0');
+      // Extra spin + leve inclinação
+      tl.to(phoneObj.rotation, { y: `+=${Math.PI * 1.1}`, x: 0.08, duration: 1.2, ease: "power3.inOut" }, 'unlockPhase');
+      // Dolly-in de câmera para dar impacto
+      tl.to(camera.position, { z: 2.9, y: 0.82, duration: 1.2, ease: "power3.inOut" }, 'unlockPhase');
+      // Sweep de luz atravessando a tela
+      tl.fromTo(sweep.position, { x: -1.6 }, { x: 1.6, duration: 1.0, ease: "sine.inOut" }, 'unlockPhase+=0.1');
+      tl.to(sweep, { intensity: 1.25, duration: 0.8, yoyo: true, repeat: 1, ease: "sine.inOut" }, 'unlockPhase');
+      // Respira: volta um pouco a câmera
+      tl.to(camera.position, { z: 3.4, duration: 0.8, ease: "power2.out" }, 'unlockPhase+=1.1');
+      // Lights: dá um punch no key e rim
+      tl.to(key, { intensity: 1.8, duration: 0.9, ease: "sine.inOut" }, 'unlockPhase');
+      tl.to(rim, { intensity: 1.2, duration: 0.9, ease: "sine.inOut" }, 'unlockPhase');
+      // Bloom e DOF
+      tl.to(bloom, { strength: 0.78, duration: 0.9, ease: "sine.inOut" }, 'unlockPhase');
+      tl.call(() => { if (bokeh) bokeh.uniforms.focus.value = 2.0; }, null, 'unlockPhase');
+      tl.call(() => { if (bokeh) bokeh.uniforms.aperture.value = 0.00042; }, null, 'unlockPhase+=0.6');
+      // Micro shake (haptic) para sensação de click/desbloqueio
+      tl.to(camera.position, { x: '+=0.04', duration: 0.08, yoyo: true, repeat: 3, ease: "sine.inOut" }, 'unlockPhase+=0.5');
     };
 
     
@@ -348,7 +371,7 @@ buildTimeline(phone);
     cards.forEach((card, i) => gsap.set(card, { autoAlpha: i === 0 ? 1 : 0, y: i === 0 ? 0 : 30 }));
 
     let current = 0;
-    const totalScroll = sections.length * 900; // px
+    const totalScroll = sections.length * 1200; // px (mais tempo para o efeito cinematográfico)
     const st = ScrollTrigger.create({
       trigger: wrapRef.current,
       start: "top top",
