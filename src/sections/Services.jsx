@@ -33,7 +33,11 @@ export default function Services() {
   }, []);
 
   return (
-    <section id="servicos" ref={containerRef} className="mx-auto max-w-6xl px-6 py-12 md:py-16">
+    <section
+      id="servicos"
+      ref={containerRef}
+      className="relative z-10 -mt-12 md:-mt-20 mx-auto max-w-6xl px-6 py-12 md:py-16"
+    >
       <div className="flex items-end justify-between">
         <h2 className="text-2xl md:text-3xl" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>Serviços</h2>
         <span className="text-xs text-white/50">Atendimento digital e presencial sob consulta</span>
