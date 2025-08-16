@@ -13,6 +13,13 @@ import LoadingOverlay from "../components/LoadingOverlay";
 
 gsap.registerPlugin(ScrollTrigger);
 
+// Mapa de animações por faixa de scroll (% de 0 a 100)
+const ANIM_MAP = [
+  { range: [0, 20], name: "Idle" },
+  { range: [20, 60], name: "Walk" },
+  { range: [60, 100], name: "Run" },
+];
+
 const WhatsCTA = () => (
   <a
     href={`https://wa.me/${BRAND.whatsappIntl}?text=${encodeURIComponent(
@@ -66,6 +73,64 @@ export default function Experience3D() {
     // Expor para debug rápido
     window.__SCENE = scene;
     window.__CAMERA = camera;
+
+    // ----- Animation Mixer -----
+    let mixer;
+    const actions = {};
+    let activeAction = null;
+
+    function initAnimations(model, clips) {
+      mixer = new THREE.AnimationMixer(model);
+      clips.forEach((clip) => {
+        actions[clip.name] = mixer.clipAction(clip);
+      });
+      console.log("Clips:", clips.map((c) => c.name));
+    }
+
+    function playClip(name, fade = 0.3) {
+      const next = actions[name];
+      if (!next) {
+        console.warn("Clip não encontrado:", name);
+        return;
+      }
+      if (activeAction === next) return;
+      next.reset().setLoop(THREE.LoopRepeat, Infinity).fadeIn(fade).play();
+      if (activeAction) activeAction.crossFadeTo(next, fade, false);
+      activeAction = next;
+    }
+
+    let lastTarget = null;
+    let lastCall = 0;
+    function onScroll() {
+      const now = performance.now();
+      if (now - lastCall < 120) return; // throttle ~120ms
+      lastCall = now;
+      const maxScroll =
+        document.documentElement.scrollHeight - window.innerHeight;
+      const progress =
+        Math.max(0, Math.min(1, window.scrollY / maxScroll)) * 100;
+      const target = ANIM_MAP.find(
+        (s) => progress >= s.range[0] && progress < s.range[1]
+      );
+      if (!target) return;
+      if (lastTarget !== target.name) {
+        playClip(target.name, 0.4);
+        lastTarget = target.name;
+      }
+    }
+
+    window.addEventListener("scroll", onScroll, { passive: true });
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (!mixer) return;
+          mixer.timeScale = entry.isIntersecting ? 1 : 0;
+        });
+      },
+      { threshold: 0.1 }
+    );
+    observer.observe(wrapRef.current);
 
     // ---------- Ambiente (PMREM "Room") ----------
     const pmrem = new THREE.PMREMGenerator(renderer);
@@ -409,8 +474,12 @@ export default function Experience3D() {
     window.addEventListener("resize", onResize);
     onResize();
 
+    const clock = new THREE.Clock();
     const animate = () => {
       reqRef.current = requestAnimationFrame(animate);
+
+      const delta = clock.getDelta();
+      if (mixer) mixer.update(delta);
 
       // Garantia: distância e imobilidade enquanto ajusto enquadramento
       camera.position.z = 5.5; // mesmo valor do passo 2
@@ -419,6 +488,7 @@ export default function Experience3D() {
         phoneRef.current.position.set(0, 0, 0);
       }
 
+      // composer ? composer.render() : renderer.render(scene, camera);
       renderer.render(scene, camera);
     };
     animate();
@@ -470,6 +540,11 @@ export default function Experience3D() {
           attachScreenPlane(phone);
           phoneRef.current = phone;
 
+          // Configura AnimationMixer com clips do GLB
+          initAnimations(phone, gltf.animations || []);
+          // Inicia com a primeira animação do mapa
+          playClip(ANIM_MAP[0]?.name);
+
           // Reconstrói timeline com o modelo final
           buildTimeline(phone);
 
@@ -486,6 +561,11 @@ export default function Experience3D() {
       ScrollTrigger.getAll().forEach((s) => s.kill());
       cancelAnimationFrame(reqRef.current);
       window.removeEventListener("resize", onResize);
+      window.removeEventListener("scroll", onScroll);
+      observer.disconnect();
+      Object.values(actions).forEach((a) => {
+        try { a.stop(); } catch {}
+      });
       try { renderer.dispose(); } catch {}
       if (renderer.domElement && mountRef.current) {
         try { mountRef.current.removeChild(renderer.domElement); } catch {}
