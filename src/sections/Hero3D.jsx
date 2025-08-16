@@ -52,6 +52,9 @@ export default function Hero3D() {
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableRotate = false;
     controls.autoRotate = false;
+    // desabilita zoom e pan para evitar que o scroll do mouse aproxime/afaste o modelo
+    controls.enableZoom = false;
+    controls.enablePan = false;
 
     // Iluminação simples
     const ambient = new THREE.AmbientLight(0xffffff, 0.6);
@@ -71,7 +74,11 @@ export default function Hero3D() {
 
     function playClip(name, fade = 0.3) {
       const next = actions[name];
-      if (!next || activeAction === next) return;
+      if (!next) {
+        console.warn(`Animação '${name}' não encontrada`);
+        return;
+      }
+      if (activeAction === next) return;
       next
         .reset()
         .setLoop(THREE.LoopRepeat, Infinity)
@@ -132,7 +139,8 @@ export default function Hero3D() {
         const model = gltf.scene;
         scene.add(model);
         initAnimations(model, gltf.animations);
-        if (gltf.animations?.length) playClip(gltf.animations[0].name, 0.2);
+        const initial = ANIM_MAP[0]?.name || gltf.animations?.[0]?.name;
+        if (initial) playClip(initial, 0.2);
       },
       undefined,
       (err) => {
