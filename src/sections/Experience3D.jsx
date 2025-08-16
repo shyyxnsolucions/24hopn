@@ -43,9 +43,9 @@ export default function Experience3D() {
     const scene = new THREE.Scene();
     scene.background = new THREE.Color("#090a0b");
 
-    const camera = new THREE.PerspectiveCamera(30, width / height, 0.01, 100);
-    camera.position.set(0, 0.9, 5.5); // distância maior para enquadrar o corpo todo
-    camera.lookAt(0, 0, 0);
+    const camera = new THREE.PerspectiveCamera(35, width / height, 0.01, 100);
+    camera.position.set(0, 1.6, 3.0);
+    camera.lookAt(0, 1.0, 0);
     camera.updateProjectionMatrix();
 
     const isMobile =
@@ -265,7 +265,7 @@ export default function Experience3D() {
     scene.add(phone);
     attachScreenPlane(phone);
     phone.rotation.set(0.12, -0.2, 0);
-    phone.position.set(0, 0, 0);
+    phone.position.set(0, -0.4, 0);
     phoneRef.current = phone;
 
     // ---------- TIMELINE (scroll-driven) ----------
@@ -413,10 +413,10 @@ export default function Experience3D() {
       reqRef.current = requestAnimationFrame(animate);
 
       // Garantia: distância e imobilidade enquanto ajusto enquadramento
-      camera.position.z = 5.5; // mesmo valor do passo 2
+      camera.position.set(0, 1.6, 3.0);
       if (phoneRef.current) {
         phoneRef.current.rotation.set(0, 0, 0);
-        phoneRef.current.position.set(0, 0, 0);
+        phoneRef.current.position.set(0, -0.4, 0);
       }
 
       renderer.render(scene, camera);
@@ -452,6 +452,7 @@ export default function Experience3D() {
           phone.scale.setScalar(scale);
           const center = box.getCenter(new THREE.Vector3());
           phone.position.sub(center.multiplyScalar(1));
+          phone.position.y -= 0.4;
 
           // Pose
           phone.rotation.set(0.12, -0.2, 0);
@@ -497,10 +498,14 @@ export default function Experience3D() {
   return (
     <section
       ref={wrapRef}
-      className="relative h-[100vh] w-full flex items-center justify-center overflow-hidden"
+      className="relative min-h-[100svh] w-full overflow-visible"
     >
       {/* 3D Canvas */}
-      <div ref={mountRef} className="absolute inset-0 z-30" />
+      <div
+        id="canvas-container"
+        ref={mountRef}
+        className="absolute inset-0 pointer-events-none z-0 translate-y-24 sm:translate-y-20 md:translate-y-8"
+      />
 
       <LoadingOverlay
         show={loading.show}
