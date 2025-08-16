@@ -4,14 +4,17 @@ import * as THREE from "three";
 import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-import { BRAND, STEPS } from "../mock";
+import { BRAND } from "../mock";
 import { Button } from "../components/ui/button";
 import { MessageCircle } from "lucide-react";
-import { gsap } from "gsap";
-import { ScrollTrigger } from "gsap/ScrollTrigger";
 import LoadingOverlay from "../components/LoadingOverlay";
 
-gsap.registerPlugin(ScrollTrigger);
+// Mapeamento de faixas de scroll para nomes de animações
+const ANIM_MAP = [
+  { range: [0, 20], name: "Idle" },
+  { range: [20, 60], name: "Walk" },
+  { range: [60, 100], name: "Run" },
+];
 
 const WhatsCTA = () => (
   <a
@@ -196,7 +199,7 @@ export default function Experience3D() {
       return plane;
     };
 
-    const unlock = { value: 0 };
+    // desenha interface inicial
     drawUI(0);
 
     // ---------- Fallback Phone ----------
@@ -264,139 +267,68 @@ export default function Experience3D() {
     let phone = makeFallbackPhone();
     scene.add(phone);
     attachScreenPlane(phone);
-    phone.rotation.set(0.12, -0.2, 0);
+    phone.rotation.set(0, 0, 0);
     phone.position.set(0, 0, 0);
     phoneRef.current = phone;
 
-    // ---------- TIMELINE (scroll-driven) ----------
-    const tl = gsap.timeline({
-      paused: true,
-      onUpdate: () => {
-        drawUI(unlock.value);
-      },
-    });
+    // ---------- Animation setup ----------
+    let mixer = null;
+    const actions = {};
+    let activeAction = null;
 
-    const sections = STEPS;
-    const totalRot = THREE.MathUtils.degToRad(360);
-    const startAngle = -totalRot / 2;
-    const angleStep = totalRot / (sections.length - 1);
-
-    const buildTimeline = (phoneObj) => {
-      tl.clear();
-      // travar o modelo para testes de enquadramento
-      if (true) return;
-      gsap.set(phoneObj.rotation, { x: 0.12, y: startAngle });
-
-      sections.forEach((_, i) => {
-        const angle = startAngle + i * angleStep;
-        const tilt = 0.12 + (i % 2 === 0 ? 0.08 : -0.06);
-        tl.to(
-          phoneObj.rotation,
-          { y: angle, x: tilt, duration: 0.9, ease: "power2.inOut" },
-          "+=0"
-        );
-        tl.to(
-          phoneObj.position,
-          {
-            y: -0.02 + (i % 2 === 0 ? 0.06 : -0.04),
-            duration: 0.9,
-            ease: "power2.inOut",
-          },
-          "<"
-        );
-        tl.to(
-          key,
-          { intensity: 1.3 + (i % 2 ? 0.2 : -0.1), duration: 0.9, ease: "sine.inOut" },
-          "<"
-        );
+    function initAnimations(model, clips) {
+      mixer = new THREE.AnimationMixer(model);
+      clips.forEach((clip) => {
+        actions[clip.name] = mixer.clipAction(clip);
       });
+      console.log("Clips:", clips.map((c) => c.name));
+    }
 
-      // Progresso de tela
-      tl.to(unlock, { value: 1, duration: 1.0, ease: "none" }, ">-0.1");
+    function playClip(name, fade = 0.3) {
+      const next = actions[name];
+      if (!next) {
+        console.warn(`Animação "${name}" não encontrada.`);
+        return;
+      }
+      if (activeAction === next) return;
+      next.reset().setLoop(THREE.LoopRepeat, Infinity).fadeIn(fade).play();
+      if (activeAction) activeAction.crossFadeTo(next, fade, false);
+      activeAction = next;
+    }
 
-      // Cinemático
-      tl.addLabel("unlockPhase");
-      tl.to(
-        phoneObj.rotation,
-        { y: `+=${Math.PI * 1.1}`, x: 0.08, duration: 1.2, ease: "power3.inOut" },
-        "unlockPhase"
+    // ---------- Scroll Handler ----------
+    let lastTarget = null;
+    let lastCall = 0;
+    function onScroll() {
+      const now = performance.now();
+      if (now - lastCall < 120) return; // throttle ~120ms
+      lastCall = now;
+      const maxScroll =
+        document.documentElement.scrollHeight - window.innerHeight;
+      const progress =
+        Math.max(0, Math.min(1, window.scrollY / maxScroll)) * 100;
+      const target = ANIM_MAP.find(
+        (s) => progress >= s.range[0] && progress < s.range[1]
       );
-      tl.to(
-        camera.position,
-        { z: 2.9, y: 0.82, duration: 1.2, ease: "power3.inOut" },
-        "unlockPhase"
-      );
-      tl.fromTo(
-        sweep.position,
-        { x: -1.6 },
-        { x: 1.6, duration: 1.0, ease: "sine.inOut" },
-        "unlockPhase+=0.1"
-      );
-      tl.to(
-        sweep,
-        { intensity: 1.25, duration: 0.8, yoyo: true, repeat: 1, ease: "sine.inOut" },
-        "unlockPhase"
-      );
-      tl.to(
-        camera.position,
-        { z: 3.4, duration: 0.8, ease: "power2.out" },
-        "unlockPhase+=1.1"
-      );
-      tl.to(key, { intensity: 1.8, duration: 0.9, ease: "sine.inOut" }, "unlockPhase");
-      tl.to(rim, { intensity: 1.2, duration: 0.9, ease: "sine.inOut" }, "unlockPhase");
+      if (!target) return;
+      if (lastTarget !== target.name) {
+        playClip(target.name, 0.4);
+        lastTarget = target.name;
+      }
+    }
+    window.addEventListener("scroll", onScroll, { passive: true });
 
-      // No-ops para manter interface (sem Bloom/DOF no safe-mode)
-      tl.call(() => {}, null, "unlockPhase");
-      tl.call(() => {}, null, "unlockPhase+=0.6");
-
-      // micro “haptic”
-      tl.to(
-        camera.position,
-        { x: "+=0.04", duration: 0.08, yoyo: true, repeat: 3, ease: "sine.inOut" },
-        "unlockPhase+=0.5"
-      );
-    };
-
-    buildTimeline(phone);
-
-    // ---------- ScrollTrigger ----------
-    const cards = wrapRef.current.querySelectorAll("[data-stepcard]");
-    cards.forEach((card, i) =>
-      gsap.set(card, { autoAlpha: i === 0 ? 1 : 0, y: i === 0 ? 0 : 30 })
-    );
-
-    let current = 0;
-    const totalScroll = sections.length * 1200;
-
-    const st = ScrollTrigger.create({
-      trigger: wrapRef.current,
-      start: "top top",
-      end: `+=${totalScroll}`,
-      scrub: 0.7,
-      pin: true,
-      onUpdate: (self) => {
-        tl.progress(self.progress);
-        const index = Math.min(
-          sections.length - 1,
-          Math.floor(self.progress * sections.length)
-        );
-        if (index !== current) {
-          gsap.to(cards[current], {
-            autoAlpha: 0,
-            y: -20,
-            duration: 0.45,
-            ease: "power2.in",
-          });
-          gsap.to(cards[index], {
-            autoAlpha: 1,
-            y: 0,
-            duration: 0.6,
-            ease: "power2.out",
-          });
-          current = index;
-        }
+    // Pausa quando fora da viewport
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (!mixer) return;
+          mixer.timeScale = entry.isIntersecting ? 1 : 0;
+        });
       },
-    });
+      { threshold: 0.1 }
+    );
+    observer.observe(mountRef.current);
 
     // ---------- Loop & Resize ----------
     const onResize = () => {
@@ -409,16 +341,11 @@ export default function Experience3D() {
     window.addEventListener("resize", onResize);
     onResize();
 
+    const clock = new THREE.Clock();
     const animate = () => {
       reqRef.current = requestAnimationFrame(animate);
-
-      // Garantia: distância e imobilidade enquanto ajusto enquadramento
-      camera.position.z = 5.5; // mesmo valor do passo 2
-      if (phoneRef.current) {
-        phoneRef.current.rotation.set(0, 0, 0);
-        phoneRef.current.position.set(0, 0, 0);
-      }
-
+      const delta = clock.getDelta();
+      if (mixer) mixer.update(delta);
       renderer.render(scene, camera);
     };
     animate();
@@ -470,8 +397,10 @@ export default function Experience3D() {
           attachScreenPlane(phone);
           phoneRef.current = phone;
 
-          // Reconstrói timeline com o modelo final
-          buildTimeline(phone);
+          if (gltf.animations && gltf.animations.length) {
+            initAnimations(phone, gltf.animations);
+            onScroll();
+          }
 
           break;
         } catch (e) {
@@ -482,15 +411,15 @@ export default function Experience3D() {
 
     // ---------- Cleanup ----------
     return () => {
-      try { st && st.kill(); } catch {}
-      ScrollTrigger.getAll().forEach((s) => s.kill());
+      window.removeEventListener("scroll", onScroll);
+      observer.disconnect();
       cancelAnimationFrame(reqRef.current);
       window.removeEventListener("resize", onResize);
       try { renderer.dispose(); } catch {}
       if (renderer.domElement && mountRef.current) {
         try { mountRef.current.removeChild(renderer.domElement); } catch {}
       }
-      try { tl.kill(); } catch {}
+      if (mixer) mixer.stopAllAction();
     };
   }, []);
 
@@ -500,7 +429,11 @@ export default function Experience3D() {
       className="relative h-[100vh] w-full flex items-center justify-center overflow-hidden"
     >
       {/* 3D Canvas */}
-      <div ref={mountRef} className="absolute inset-0 z-30" />
+      <div
+        ref={mountRef}
+        id="canvas-container"
+        className="absolute inset-0 z-30"
+      />
 
       <LoadingOverlay
         show={loading.show}
@@ -511,33 +444,9 @@ export default function Experience3D() {
       {/* Cinematic vignette */}
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_60%,rgba(0,0,0,0.6)_100%)]" />
 
-      {/* Step Cards */}
-      <div className="relative z-40 w-full h-full">
-        {STEPS.map((s, i) => (
-          <div
-            key={s.id}
-            data-stepcard
-            className={`absolute top-1/2 -translate-y-1/2 left-4 right-4 p-5 rounded-xl border border-white/10 bg-black/30 backdrop-blur-md text-white/90 md:max-w-sm ${
-              i % 2 === 0 ? "md:left-16 md:right-auto" : "md:right-16 md:left-auto"
-            }`}
-          >
-            <div className="text-xs uppercase tracking-wide text-teal-300/80">
-              {s.kicker || "Destaque"}
-            </div>
-            <h3
-              className="mt-1 text-2xl font-semibold"
-              style={{ fontFamily: "'Space Grotesk', sans-serif" }}
-            >
-              {s.title}
-            </h3>
-            <p className="mt-2 text-white/70">{s.text}</p>
-            {i === 0 && (
-              <div className="mt-4">
-                <WhatsCTA />
-              </div>
-            )}
-          </div>
-        ))}
+      {/* CTA */}
+      <div className="relative z-40">
+        <WhatsCTA />
       </div>
     </section>
   );
