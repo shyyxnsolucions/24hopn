@@ -44,7 +44,7 @@ export default function Experience3D() {
     scene.background = new THREE.Color("#090a0b");
 
     const camera = new THREE.PerspectiveCamera(30, width / height, 0.01, 100);
-    camera.position.set(0, 0.9, 8.5); // distância maior para enquadrar o corpo todo
+    camera.position.set(0, 0.9, 5.5); // distância maior para enquadrar o corpo todo
     camera.lookAt(0, 0, 0);
     camera.updateProjectionMatrix();
 
@@ -413,7 +413,7 @@ export default function Experience3D() {
       reqRef.current = requestAnimationFrame(animate);
 
       // Garantia: distância e imobilidade enquanto ajusto enquadramento
-      camera.position.z = 8.5; // mesmo valor do passo 2
+      camera.position.z = 5.5; // mesmo valor do passo 2
       if (phoneRef.current) {
         phoneRef.current.rotation.set(0, 0, 0);
         phoneRef.current.position.set(0, 0, 0);
