@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import Experience3D from "../sections/Experience3D";
+import Hero3D from "../sections/Hero3D";
 import Services from "../sections/Services";
 import PricingContact from "../sections/PricingContact";
 import SmoothScroll from "../components/SmoothScroll";
@@ -65,7 +65,7 @@ export default function Home() {
       </header>
 
       {/* Cinematic pinned 3D experience */}
-      <Experience3D />
+      <Hero3D />
       <Services />
       <PricingContact />
 
