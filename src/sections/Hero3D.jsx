@@ -434,7 +434,7 @@ export default function Experience3D() {
           // Norm/escala/centro
           const box = new THREE.Box3().setFromObject(phone);
           const size = box.getSize(new THREE.Vector3());
-          const scale = 1.6 / Math.max(size.y || 1e-3, 1e-3);
+          const scale = 0.2 / Math.max(size.y || 1e-3, 1e-3);
           phone.scale.setScalar(scale);
           const center = box.getCenter(new THREE.Vector3());
           phone.position.sub(center.multiplyScalar(1));
