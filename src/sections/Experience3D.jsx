@@ -35,6 +35,7 @@ export default function Experience3D() {
   const [loading, setLoading] = useState({ show: false, progress: 0 });
 
   useEffect(() => {
+    console.log("[EXPERIENCE3D] patch ativo");
     // ---------- Base ----------
     const width = mountRef.current.clientWidth;
     const height = mountRef.current.clientHeight;
@@ -43,7 +44,7 @@ export default function Experience3D() {
     scene.background = new THREE.Color("#090a0b");
 
     const camera = new THREE.PerspectiveCamera(30, width / height, 0.01, 100);
-    camera.position.set(0, 0.9, 3.6);
+    camera.position.set(0, 0.9, 8.5); // distância maior para enquadrar o corpo todo
     camera.lookAt(0, 0, 0);
     camera.updateProjectionMatrix();
 
@@ -408,6 +409,7 @@ export default function Experience3D() {
 
     const animate = () => {
       reqRef.current = requestAnimationFrame(animate);
+
       renderer.render(scene, camera);
     };
     animate();
@@ -437,7 +439,7 @@ export default function Experience3D() {
           // Norm/escala/centro
           const box = new THREE.Box3().setFromObject(phone);
           const size = box.getSize(new THREE.Vector3());
-          const scale = 3.2 / Math.max(size.y || 1e-3, 1e-3);
+          const scale = 1.2 / Math.max(size.y || 1e-3, 1e-3); // modelo menor
           phone.scale.setScalar(scale);
           const center = box.getCenter(new THREE.Vector3());
           phone.position.sub(center.multiplyScalar(1));
