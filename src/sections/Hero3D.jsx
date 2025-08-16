@@ -46,7 +46,7 @@ export default function Experience3D() {
     scene.background = new THREE.Color("#090a0b");
 
     const camera = new THREE.PerspectiveCamera(30, width / height, 0.01, 100);
-    camera.position.set(0, 0.9, 6.5);
+    camera.position.set(0, 0.9, 10.5);
     camera.lookAt(0, 0, 0);
     camera.updateProjectionMatrix();
 
