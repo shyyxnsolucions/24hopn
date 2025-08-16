@@ -30,12 +30,15 @@ export default function Hero3D() {
     // Cena básica
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(30, width / height, 0.1, 100);
-    camera.position.set(0, 1, 3);
+    // levemente mais baixa para enquadrar melhor o modelo
+    camera.position.set(0, 0.8, 3);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
     renderer.setSize(width, height);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     mountRef.current.appendChild(renderer.domElement);
+    // allow page scroll by letting events pass through the 3D canvas wrapper
+    mountRef.current.style.pointerEvents = "none";
 
     // Pós-processamento (EffectComposer + UnrealBloom)
     const composer = new EffectComposer(renderer);
@@ -145,9 +148,11 @@ export default function Hero3D() {
           );
         });
         const model = gltf.scene;
-        model.position.set(0, 0, 0);
+        // posiciona o aparelho mais abaixo para equilibrar o enquadramento
+        model.position.set(0, -0.5, 0);
         model.scale.set(1, 1, 1);
         scene.add(model);
+        // centraliza o foco da câmera no novo ponto
         controls.target.copy(model.position);
         controls.update();
         initAnimations(model, gltf.animations);
