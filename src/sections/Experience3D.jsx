@@ -13,6 +13,13 @@ import LoadingOverlay from "../components/LoadingOverlay";
 
 gsap.registerPlugin(ScrollTrigger);
 
+// Mapeia faixas de scroll para animações do modelo
+const ANIM_MAP = [
+  { range: [0, 20], name: "Idle" },
+  { range: [20, 60], name: "Walk" },
+  { range: [60, 100], name: "Run" },
+];
+
 const WhatsCTA = () => (
   <a
     href={`https://wa.me/${BRAND.whatsappIntl}?text=${encodeURIComponent(
@@ -66,6 +73,31 @@ export default function Experience3D() {
     // Expor para debug rápido
     window.__SCENE = scene;
     window.__CAMERA = camera;
+
+    // ---------- Animações do modelo ----------
+    let mixer = null;
+    const actions = {};
+    let activeAction = null;
+
+    const initAnimations = (model, clips) => {
+      mixer = new THREE.AnimationMixer(model);
+      clips.forEach((clip) => {
+        actions[clip.name] = mixer.clipAction(clip);
+      });
+      console.log("Clips:", clips.map((c) => c.name));
+    };
+
+    const playClip = (name, fade = 0.3) => {
+      const next = actions[name];
+      if (!next || activeAction === next) return;
+      next
+        .reset()
+        .setLoop(THREE.LoopRepeat, Infinity)
+        .fadeIn(fade)
+        .play();
+      if (activeAction) activeAction.crossFadeTo(next, fade, false);
+      activeAction = next;
+    };
 
     // ---------- Ambiente (PMREM "Room") ----------
     const pmrem = new THREE.PMREMGenerator(renderer);
@@ -409,16 +441,11 @@ export default function Experience3D() {
     window.addEventListener("resize", onResize);
     onResize();
 
+    const clock = new THREE.Clock();
     const animate = () => {
       reqRef.current = requestAnimationFrame(animate);
-
-      // Garantia: distância e imobilidade enquanto ajusto enquadramento
-      camera.position.z = 5.5; // mesmo valor do passo 2
-      if (phoneRef.current) {
-        phoneRef.current.rotation.set(0, 0, 0);
-        phoneRef.current.position.set(0, 0, 0);
-      }
-
+      const delta = clock.getDelta();
+      if (mixer) mixer.update(delta);
       renderer.render(scene, camera);
     };
     animate();
@@ -469,8 +496,12 @@ export default function Experience3D() {
           scene.add(phone);
           attachScreenPlane(phone);
           phoneRef.current = phone;
+          // Inicializa animações embutidas do GLB
+          initAnimations(phone, gltf.animations || []);
+          // começa com a primeira animação mapeada, se existir
+          if (ANIM_MAP[0]) playClip(ANIM_MAP[0].name, 0.0);
 
-          // Reconstrói timeline com o modelo final
+          // Reconstrói timeline com o modelo final (sem rotações)
           buildTimeline(phone);
 
           break;
@@ -480,12 +511,52 @@ export default function Experience3D() {
       }
     })();
 
+    // ---------- Animação por scroll ----------
+    let lastTarget = null;
+    let lastCall = 0;
+    const onScroll = () => {
+      const now = performance.now();
+      if (now - lastCall < 120) return; // throttle
+      lastCall = now;
+
+      const maxScroll =
+        document.documentElement.scrollHeight - window.innerHeight;
+      const progress =
+        Math.max(0, Math.min(1, window.scrollY / maxScroll)) * 100;
+      const target = ANIM_MAP.find(
+        (s) => progress >= s.range[0] && progress < s.range[1]
+      );
+      if (!target) return;
+      if (lastTarget !== target.name) {
+        playClip(target.name, 0.4);
+        lastTarget = target.name;
+      }
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+
+    // ---------- Pausa quando fora da viewport ----------
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (!mixer) return;
+          mixer.timeScale = entry.isIntersecting ? 1 : 0;
+        });
+      },
+      { threshold: 0.1 }
+    );
+    if (wrapRef.current) observer.observe(wrapRef.current);
+
     // ---------- Cleanup ----------
     return () => {
       try { st && st.kill(); } catch {}
       ScrollTrigger.getAll().forEach((s) => s.kill());
       cancelAnimationFrame(reqRef.current);
       window.removeEventListener("resize", onResize);
+      window.removeEventListener("scroll", onScroll);
+      try { observer.disconnect(); } catch {}
+      Object.values(actions).forEach((a) => {
+        try { a.stop(); } catch {}
+      });
       try { renderer.dispose(); } catch {}
       if (renderer.domElement && mountRef.current) {
         try { mountRef.current.removeChild(renderer.domElement); } catch {}
